@@ -31,6 +31,7 @@ module PowerModelsDistribution
     include("form/bf_mx_lin.jl")
     include("form/bf_mx_soc.jl")
     include("form/bf_mx_sdp.jl")
+    include("form/iv.jl")
     include("form/shared.jl")
     include("form/wr.jl")
 
@@ -49,6 +50,7 @@ module PowerModelsDistribution
     include("prob/opf_oltc.jl")
     include("prob/opf_bctr.jl")
     include("prob/opf_bf.jl")
+    include("prob/opf_iv.jl")
     include("prob/pf.jl")
     include("prob/pf_lm.jl")
     include("prob/pf_bf.jl")

@@ -17,6 +17,7 @@ function post_mc_opf_iv(pm::_PMs.AbstractPowerModel)
 
     for i in _PMs.ids(pm, :load)
         constraint_mc_load_power_setpoint(pm, i)
+        # constraint_mc_load(pm, id)
     end
 
     for i in _PMs.ids(pm, :gen)
@@ -43,5 +44,11 @@ function post_mc_opf_iv(pm::_PMs.AbstractPowerModel)
         constraint_mc_thermal_limit_from(pm, i)
         constraint_mc_thermal_limit_to(pm, i)
     end
+
+    for i in _PMs.ids(pm, :transformer)
+        # constraint_mc_trans(pm, i)
+        # constraint_mc_oltc(pm, i)
+    end
+
     print(pm.model)
 end

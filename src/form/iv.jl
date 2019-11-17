@@ -40,6 +40,108 @@ function constraint_mc_load_power_setpoint(pm::_PMs.AbstractIVRModel, i::Int; nw
     end
 end
 
+
+""
+function constraint_load_power_wye(pm::_PMs.AbstractIVRModel, nw::Int, cnd::Int, load_id::Int, pd::Real, qd::Real)
+    # _PMs.var(pm, nw, cnd, :pd)[load_id] = pd
+    # _PMs.var(pm, nw, cnd, :qd)[load_id] = qd
+    #TODO
+end
+
+""
+function constraint_mc_load_power_delta(pm::_PMs.AbstractIVRModel, nw::Int, cnd::Int, load_id::Int, pd::Real, qd::Real)
+    # _PMs.var(pm, nw, cnd, :pd)[load_id] = pd
+    # _PMs.var(pm, nw, cnd, :qd)[load_id] = qd
+    #TODO
+end
+
+""
+function constraint_load_current_wye(pm::_PMs.AbstractIVRModel, nw::Int, cnd::Int, load_id::Int, pd::Real, qd::Real)
+    # _PMs.var(pm, nw, cnd, :pd)[load_id] = pd
+    # _PMs.var(pm, nw, cnd, :qd)[load_id] = qd
+    #TODO
+end
+
+""
+function constraint_mc_load_current_delta(pm::_PMs.AbstractIVRModel, nw::Int, cnd::Int, load_id::Int, pd::Real, qd::Real)
+    # _PMs.var(pm, nw, cnd, :pd)[load_id] = pd
+    # _PMs.var(pm, nw, cnd, :qd)[load_id] = qd
+    #TODO
+end
+
+""
+function constraint_load_impedance_wye(pm::_PMs.AbstractIVRModel, nw::Int, cnd::Int, load_id::Int, pd::Real, qd::Real)
+    # _PMs.var(pm, nw, cnd, :pd)[load_id] = pd
+    # _PMs.var(pm, nw, cnd, :qd)[load_id] = qd
+    #TODO
+end
+
+""
+function constraint_mc_load_impedance_delta(pm::_PMs.AbstractIVRModel, nw::Int, cnd::Int, load_id::Int, pd::Real, qd::Real)
+    # _PMs.var(pm, nw, cnd, :pd)[load_id] = pd
+    # _PMs.var(pm, nw, cnd, :qd)[load_id] = qd
+    #TODO
+end
+
+
+
+"Links the voltage at both windings of a fixed tap transformer"
+function constraint_mc_transformer_voltage(pm::_PMs.AbstractIVRModel, nw::Int, i::Int, f_bus::Int, t_bus::Int, tm::_PMs.MultiConductorVector, Tv_fr, Tv_im, Cv_to)
+    Vrfr = [_PMs.var(pm, n, c, :vr, f_bus) for c in _PMs.conductor_ids(pm)]
+    Vifr = [_PMs.var(pm, n, c, :vi, f_bus) for c in _PMs.conductor_ids(pm)]
+
+    Vrto = [_PMs.var(pm, n, c, :vr, t_bus) for c in _PMs.conductor_ids(pm)]
+    Vito = [_PMs.var(pm, n, c, :vi, t_bus) for c in _PMs.conductor_ids(pm)]
+
+    # for n in 1:size(Tv_fr)[1]
+    #     JuMP.@NLconstraint(pm.model,
+    #           sum(Tv_fr[n,c]*vm_fr[c]*cos(va_fr[c]) for c in 1:ncnd)
+    #         ==sum(Tv_im[n,c]*(vm_to[c]*tm[c]*Cv_to)*cos(va_to[c]) for c in 1:ncnd)
+    #     )
+    #     JuMP.@NLconstraint(pm.model,
+    #           sum(Tv_fr[n,c]*vm_fr[c]*sin(va_fr[c]) for c in 1:ncnd)
+    #         ==sum(Tv_im[n,c]*(vm_to[c]*tm[c]*Cv_to)*sin(va_to[c]) for c in 1:ncnd)
+    #     )
+    # end
+end
+
+"Links the power flowing into both windings of a fixed tap transformer"
+function constraint_mc_transformer_flow(pm::_PMs.AbstractIVRModel, nw::Int, i::Int, f_bus::Int, t_bus::Int, f_idx, t_idx, tm::_PMs.MultiConductorVector, Ti_fr, Ti_im, Cv_to)
+    ncnd  = 3
+    # from side variables
+    Vrfr = [_PMs.var(pm, n, c, :vr, f_bus) for c in _PMs.conductor_ids(pm)]
+    Vifr = [_PMs.var(pm, n, c, :vi, f_bus) for c in _PMs.conductor_ids(pm)]
+    Csrfr =  [_PMs.var(pm, n, c, :csr, f_idx) for c in _PMs.conductor_ids(pm)]
+    Csifr =  [_PMs.var(pm, n, c, :csi, f_idx) for c in _PMs.conductor_ids(pm)]
+    # to side
+    Vrto = [_PMs.var(pm, n, c, :vr, t_bus) for c in _PMs.conductor_ids(pm)]
+    Vito = [_PMs.var(pm, n, c, :vi, t_bus) for c in _PMs.conductor_ids(pm)]
+    Csrto =  [_PMs.var(pm, n, c, :csr, t_idx) for c in _PMs.conductor_ids(pm)]
+    Csito =  [_PMs.var(pm, n, c, :csi, t_idx) for c in _PMs.conductor_ids(pm)]
+
+
+    # for n in 1:size(Ti_fr)[1]
+    #     JuMP.@NLconstraint(pm.model,
+    #           sum(Ti_fr[n,c]*
+    #                 1/vm_fr[c]*(p_fr[c]*cos(va_fr[c])+q_fr[c]*sin(va_fr[c])) # i_fr_re[c]
+    #           for c in 1:ncnd)
+    #         + sum(Ti_im[n,c]*
+    #                 1/(vm_to[c]*tm[c]*Cv_to)*(p_to[c]*cos(va_to[c])+q_to[c]*sin(va_to[c])) # i_to_re[c]
+    #           for c in 1:ncnd)
+    #         == 0
+    #     )
+    #     JuMP.@NLconstraint(pm.model,
+    #           sum(Ti_fr[n,c]*
+    #                 1/vm_fr[c]*(p_fr[c]*sin(va_fr[c])-q_fr[c]*cos(va_fr[c])) # i_fr_im[c]
+    #           for c in 1:ncnd)
+    #         + sum(Ti_im[n,c]*
+    #                 1/(vm_to[c]*tm[c]*Cv_to)*(p_to[c]*sin(va_to[c])-q_to[c]*cos(va_to[c])) # i_to_im[c]
+    #           for c in 1:ncnd)
+    #         == 0
+    #     )
+    # end
+end
+
 ""
 function constraint_mc_gen_power_limits(pm::_PMs.AbstractIVRModel, i::Int; nw=pm.cnw, kwargs...)
     for c in _PMs.conductor_ids(pm)

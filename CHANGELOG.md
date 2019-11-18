@@ -3,6 +3,7 @@ PowerModelsDistribution.jl Change Log
 
 ### staged
 - added `rate_a` setting to virtual lines (#185, #186)
+- add support for transformers to ACRPowerModel
 
 ### v0.6.0
 - Adds `count_nodes` function to count the number of nodes in a parsed network (#183)

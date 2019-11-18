@@ -47,11 +47,17 @@ function constraint_mc_theta_ref(pm::_PMs.AbstractACRModel, n::Int, c::Int, d)
         JuMP.@constraint(pm.model, vi == 0)
     else
         JuMP.@constraint(pm.model, vi == tan(theta)*vr)
-        # theta also implies a sign for vr, vi
-        if 0<=theta && theta <= pi
+        # theta  implies a sign for vi
+        if 0 < theta && theta < π
             JuMP.@constraint(pm.model, vi >= 0)
         else
             JuMP.@constraint(pm.model, vi <= 0)
+        end
+        # theta  implies a sign for vr
+        if -π/2 < theta && theta < π/2
+            JuMP.@constraint(pm.model, vr >= 0)
+        else
+            JuMP.@constraint(pm.model, vr <= 0)
         end
     end
 end
@@ -278,8 +284,8 @@ s_c = v_c*conj(s_ab/(v_a-v_b) - s_ca/(v_c-v_a))
 function constraint_mc_load_power_delta(pm::_PMs.AbstractACRModel, nw::Int, load_id::Int, load_bus_id::Int, pd::_PMs.MultiConductorVector, qd::_PMs.MultiConductorVector)
     p_ab, p_bc, p_ca = pd
     q_ab, q_bc, q_ca = qd
-    vre_a, vre_b, vre_c = [_PMs.var(pm, nw, c, :vr, load_bus_id) for c in 1:3]
-    vim_a, vim_b, vim_c = [_PMs.var(pm, nw, c, :vi, load_bus_id) for c in 1:3]
+    vre_a, vre_b, vre_c = [_PMs.var(pm, nw, c, :vr, load_bus_id) for c in _PMs.conductor_ids(pm)]
+    vim_a, vim_b, vim_c = [_PMs.var(pm, nw, c, :vi, load_bus_id) for c in _PMs.conductor_ids(pm)]
     # v_xy = v_x - v_y
     vre_xy(vre_x, vre_y) = JuMP.@NLexpression(pm.model, vre_x-vre_y)
     vim_xy(vim_x, vim_y) = JuMP.@NLexpression(pm.model, vim_x-vim_y)
@@ -326,8 +332,8 @@ idem for s_b and s_c
 function constraint_mc_load_current_delta(pm::_PMs.AbstractACRModel, nw::Int, load_id::Int, load_bus_id::Int, cp::_PMs.MultiConductorVector, cq::_PMs.MultiConductorVector)
     cp_ab, cp_bc, cp_ca = cp
     cq_ab, cq_bc, cq_ca = cq
-    vre_a, vre_b, vre_c = [_PMs.var(pm, nw, c, :vr, load_bus_id) for c in 1:3]
-    vim_a, vim_b, vim_c = [_PMs.var(pm, nw, c, :vi, load_bus_id) for c in 1:3]
+    vre_a, vre_b, vre_c = [_PMs.var(pm, nw, c, :vr, load_bus_id) for c in _PMs.conductor_ids(pm)]
+    vim_a, vim_b, vim_c = [_PMs.var(pm, nw, c, :vi, load_bus_id) for c in _PMs.conductor_ids(pm)]
     # v_xy = v_x - v_y
     vre_xy(vre_x, vre_y) = JuMP.@NLexpression(pm.model, vre_x-vre_y)
     vim_xy(vim_x, vim_y) = JuMP.@NLexpression(pm.model, vim_x-vim_y)
@@ -373,8 +379,8 @@ idem for s_b and s_c
 function constraint_mc_load_impedance_delta(pm::_PMs.AbstractACRModel, nw::Int, load_id::Int, load_bus_id::Int, cp::_PMs.MultiConductorVector, cq::_PMs.MultiConductorVector)
     cp_ab, cp_bc, cp_ca = cp
     cq_ab, cq_bc, cq_ca = cq
-    vre_a, vre_b, vre_c = [_PMs.var(pm, nw, c, :vr, load_bus_id) for c in 1:3]
-    vim_a, vim_b, vim_c = [_PMs.var(pm, nw, c, :vi, load_bus_id) for c in 1:3]
+    vre_a, vre_b, vre_c = [_PMs.var(pm, nw, c, :vr, load_bus_id) for c in _PMs.conductor_ids(pm)]
+    vim_a, vim_b, vim_c = [_PMs.var(pm, nw, c, :vi, load_bus_id) for c in _PMs.conductor_ids(pm)]
     # v_xy = v_x - v_y
     vre_xy(vre_x, vre_y) = JuMP.@NLexpression(pm.model, vre_x-vre_y)
     vim_xy(vim_x, vim_y) = JuMP.@NLexpression(pm.model, vim_x-vim_y)
@@ -405,4 +411,73 @@ function constraint_mc_load_impedance_delta(pm::_PMs.AbstractACRModel, nw::Int, 
     _PMs.var(pm, nw, 1, :qd)[load_id] = q_x(vre_a, vim_a, ire_ab, iim_ab, ire_ca, iim_ca)
     _PMs.var(pm, nw, 2, :qd)[load_id] = q_x(vre_b, vim_b, ire_bc, iim_bc, ire_ab, iim_ab)
     _PMs.var(pm, nw, 3, :qd)[load_id] = q_x(vre_c, vim_c, ire_ca, iim_ca, ire_bc, iim_bc)
+end
+
+
+"Links the voltage at both windings of a fixed tap transformer"
+function constraint_mc_transformer_voltage(pm::_PMs.AbstractACRModel, nw::Int, i::Int, f_bus::Int, t_bus::Int, tm::_PMs.MultiConductorVector, Tv_fr, Tv_to, Cv_to)
+    # from side
+    vr_fr = [_PMs.var(pm, nw, c, :vr, f_bus) for c in _PMs.conductor_ids(pm)]
+    vi_fr = [_PMs.var(pm, nw, c, :vi, f_bus) for c in _PMs.conductor_ids(pm)]
+    # to side
+    vr_to = [_PMs.var(pm, nw, c, :vr, t_bus) for c in _PMs.conductor_ids(pm)]
+    vi_to = [_PMs.var(pm, nw, c, :vi, t_bus) for c in _PMs.conductor_ids(pm)]
+    # the intermediate bus voltage is saved as an expression
+    # vm_im[c] = vm_to[c]*tm[c]*Cv_to
+    # va_im = va_to
+    @show Tv_fr, Tv_to, Cv_to
+    for n in 1:size(Tv_fr)[1]
+        JuMP.@NLconstraint(pm.model,
+              sum(Tv_fr[n,c]*vr_fr[c] for c in _PMs.conductor_ids(pm))
+            ==sum(tm[c]*Cv_to*Tv_to[n,c]*vr_to[c] for c in _PMs.conductor_ids(pm))
+        )
+        JuMP.@NLconstraint(pm.model,
+              sum(Tv_fr[n,c]*vi_fr[c] for c in _PMs.conductor_ids(pm))
+            ==sum(tm[c]*Cv_to*Tv_to[n,c]*vi_to[c] for c in _PMs.conductor_ids(pm))
+        )
+    end
+end
+
+
+"Links the power flowing into both windings of a fixed tap transformer"
+function constraint_mc_transformer_flow(pm::_PMs.AbstractACRModel, nw::Int, i::Int, f_bus::Int, t_bus::Int, f_idx, t_idx, tm::_PMs.MultiConductorVector, Ti_fr, Ti_to, Cv_to)
+    # from side variables
+    vr_fr = [_PMs.var(pm, nw, c, :vr, f_bus) for c in _PMs.conductor_ids(pm)]
+    vi_fr = [_PMs.var(pm, nw, c, :vi, f_bus) for c in _PMs.conductor_ids(pm)]
+    p_fr = [_PMs.var(pm, nw, c, :pt, f_idx) for c in _PMs.conductor_ids(pm)]
+    q_fr = [_PMs.var(pm, nw, c, :qt, f_idx) for c in _PMs.conductor_ids(pm)]
+    # to side
+    vr_to = [_PMs.var(pm, nw, c, :vr, t_bus) for c in _PMs.conductor_ids(pm)]
+    vi_to = [_PMs.var(pm, nw, c, :vi, t_bus) for c in _PMs.conductor_ids(pm)]
+    p_to = [_PMs.var(pm, nw, c, :pt, t_idx) for c in _PMs.conductor_ids(pm)]
+    q_to = [_PMs.var(pm, nw, c, :qt, t_idx) for c in _PMs.conductor_ids(pm)]
+    # the intermediate bus voltage is saved as an expression
+    # vm_im[c] = vm_to[c]*tm[c]*Cv_to
+    # va_im = va_to
+    @show Ti_to, Ti_fr, Cv_to, tm
+    for n in 1:size(Ti_fr)[1]
+        # i_fr_re[c] = 1/(vr_fr[c]^2 + vi_fr[c]^2)*(p_fr[c]*vr_fr[c] + q_fr[c]*vi_fr[c])
+        # i_fr_im[c] = 1/(vr_fr[c]^2 + vi_fr[c]^2)*(q_fr[c]*vr_fr[c] - p_fr[c]*vi_fr[c])
+        # i_to_re[c] = 1/(vr_to[c]^2 + vi_to[c]^2)*(p_to[c]*vr_to[c] + q_to[c]*vi_to[c])
+        # i_to_im[c] = 1/(vr_to[c]^2 + vi_to[c]^2)*(p_to[c]*vi_to[c] - q_to[c]*vr_to[c])
+
+        JuMP.@NLconstraint(pm.model,
+              sum(Ti_fr[n,c]*
+                    1/(vr_fr[c]^2 + vi_fr[c]^2)*(p_fr[c]*vr_fr[c] + q_fr[c]*vi_fr[c]) # i_fr_re[c]
+              for c in _PMs.conductor_ids(pm))
+            + sum(Ti_to[n,c]*
+                    1/((vr_to[c]^2 + vi_to[c]^2)*tm[c]*Cv_to)*(p_to[c]*vr_to[c] + q_to[c]*vi_to[c]) # i_to_re[c]
+              for c in _PMs.conductor_ids(pm))
+            == 0
+        )
+        JuMP.@NLconstraint(pm.model,
+              sum(Ti_fr[n,c]*
+                    1/(vr_fr[c]^2 + vi_fr[c]^2)*(- q_fr[c]*vr_fr[c] + p_fr[c]*vi_fr[c]) # i_fr_im[c]
+              for c in _PMs.conductor_ids(pm))
+            + sum(Ti_to[n,c]*
+                    1/((vr_to[c]^2 + vi_to[c]^2)*tm[c]*Cv_to)*(-p_to[c]*vi_to[c] + q_to[c]*vr_to[c]) # i_to_im[c]
+              for c in _PMs.conductor_ids(pm))
+            == 0
+        )
+    end
 end
